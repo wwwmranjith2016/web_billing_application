@@ -1,0 +1,18 @@
+{
+  "name": "silks-and-readymades-server",
+  "version": "1.0.0",
+  "description": "Backend API server for Silks and Readymades billing software",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.17.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "express": "^4.18.2",
+    "sql.js": "^1.10.3"
+  }
+}

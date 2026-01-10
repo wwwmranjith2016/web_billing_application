@@ -9,6 +9,22 @@ interface ProductFormProps {
 }
 
 const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel, editProduct }) => {
+  // Helper function to generate barcode locally
+  const generateLocalBarcode = (category: string): string => {
+    const categoryCode = {
+      'SILK': 'SLK',
+      'READYMADE': 'RDY',
+      'SAREE': 'SAR',
+      'SHIRT': 'SHT',
+      'PANT': 'PNT',
+      'DRESS': 'DRS',
+      'GENERAL': 'GEN'
+    }[category.toUpperCase()] || 'GEN';
+    
+    const timestamp = Date.now().toString().slice(-6);
+    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+    return `${categoryCode}${timestamp}${random}`;
+  };
   const [formData, setFormData] = useState({
     product_name: '',
     category: 'GENERAL',
@@ -60,18 +76,72 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel, editProd
 
   const handleGenerateBarcode = async () => {
     try {
+      console.log('=== BARCODE GENERATION STARTED ===');
+      console.log('Current form data:', formData);
+      console.log('Generating barcode for category:', formData.category);
+      
+      // Check if electron API is available
+      if (!(window as any).electron?.barcode?.generateUnique) {
+        console.log('Electron barcode API not available, using local generation');
+        // Fallback: generate barcode locally
+        const localBarcode = generateLocalBarcode(formData.category);
+        console.log('Generated local barcode:', localBarcode);
+        const updatedFormData = { ...formData, barcode: localBarcode };
+        console.log('Updated form data:', updatedFormData);
+        setFormData(updatedFormData);
+        generateBarcodeImage(localBarcode, updatedFormData.barcode_type);
+        showToast('Generated barcode locally (Electron API unavailable)', 'info');
+        return;
+      }
+         
+      console.log('Calling electron barcode generation...');
       const result = await (window as any).electron.barcode.generateUnique(formData.category);
-      if (result.success) {
-        setFormData({ ...formData, barcode: result.barcode });
-        generateBarcodeImage(result.barcode, formData.barcode_type);
+      console.log('Barcode generation result:', result);
+      
+      // Extract barcode from the correct property (handle both formats)
+      const generatedBarcode = result.barcode || (result.data && result.data.barcode) || result.data;
+      console.log('Extracted barcode:', generatedBarcode);
+      
+      if (result.success && generatedBarcode) {
+        console.log('Barcode generation successful, barcode:', generatedBarcode);
+        const updatedFormData = { ...formData, barcode: generatedBarcode };
+        console.log('Setting form data with barcode:', updatedFormData.barcode);
+        setFormData(updatedFormData);
+        console.log('Generating barcode image for:', generatedBarcode, 'with type:', updatedFormData.barcode_type);
+        generateBarcodeImage(generatedBarcode, updatedFormData.barcode_type);
+        
+        if (result.fallback) {
+          showToast('Generated barcode (fallback method)', 'info');
+        } else {
+          showToast('Barcode generated successfully', 'success');
+        }
+      } else {
+        // Fallback: generate barcode locally
+        const localBarcode = generateLocalBarcode(formData.category);
+        console.log('Fallback to local barcode:', localBarcode);
+        const updatedFormData = { ...formData, barcode: localBarcode };
+        console.log('Setting form data with fallback barcode:', updatedFormData.barcode);
+        setFormData(updatedFormData);
+        generateBarcodeImage(localBarcode, updatedFormData.barcode_type);
+        showToast('Generated barcode locally (DB fallback): ' + (result.error || 'Unknown error'), 'warning');
       }
     } catch (error) {
-      showToast('Error generating barcode: ' + error, 'error');
+      console.error('Barcode generation error:', error);
+      // Fallback: generate barcode locally on error
+      const localBarcode = generateLocalBarcode(formData.category);
+      console.log('Error fallback barcode:', localBarcode);
+      const updatedFormData = { ...formData, barcode: localBarcode };
+      console.log('Setting form data with error fallback barcode:', updatedFormData.barcode);
+      setFormData(updatedFormData);
+      generateBarcodeImage(localBarcode, updatedFormData.barcode_type);
+      showToast('Generated barcode locally (error fallback): ' + (error as Error).message, 'warning');
     }
+    console.log('=== BARCODE GENERATION COMPLETED ===');
   };
 
   const generateBarcodeImage = (barcode: string, type: string) => {
     try {
+      console.log('Generating barcode image for:', barcode, 'with type:', type);
       const canvas = document.createElement('canvas');
       JsBarcode(canvas, barcode, {
         format: type,
@@ -80,9 +150,12 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel, editProd
         displayValue: true,
         fontSize: 16,
       });
-      setBarcodeImage(canvas.toDataURL('image/png'));
+      const imageData = canvas.toDataURL('image/png');
+      console.log('Barcode image generated, length:', imageData.length);
+      setBarcodeImage(imageData);
     } catch (error) {
-      console.error('Barcode generation error:', error);
+      console.error('Barcode image generation error:', error);
+      setBarcodeImage('');
     }
   };
 
@@ -110,6 +183,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel, editProd
     setLoading(true);
 
     try {
+      // Convert form data to proper types and ensure no BigInt values
       const productData = {
         ...formData,
         purchase_price: parseFloat(formData.purchase_price) || 0,
@@ -118,11 +192,19 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel, editProd
         min_stock_level: parseInt(formData.min_stock_level) || 5,
       };
 
+      // Ensure all numeric values are regular numbers, not BigInt
+      const sanitizedData = JSON.parse(JSON.stringify(productData, (key, value) => {
+        if (typeof value === 'bigint') {
+          return Number(value);
+        }
+        return value;
+      }));
+
       let result;
       if (editProduct) {
-        result = await (window as any).electron.products.update(editProduct.product_id, productData);
+        result = await (window as any).electron.products.update(editProduct.product_id, sanitizedData);
       } else {
-        result = await (window as any).electron.products.create(productData);
+        result = await (window as any).electron.products.create(sanitizedData);
       }
 
       if (result.success) {
@@ -254,6 +336,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel, editProd
                   onChange={(e) => handleBarcodeChange(e.target.value)}
                   className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
+                  placeholder="Click Generate to create barcode"
                 />
                 <button
                   type="button"
@@ -266,6 +349,11 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel, editProd
               {barcodeImage && (
                 <div className="mt-2 p-2 bg-gray-50 rounded border">
                   <img src={barcodeImage} alt="Barcode" className="mx-auto" />
+                </div>
+              )}
+              {!barcodeImage && formData.barcode && (
+                <div className="mt-2 p-2 bg-yellow-50 rounded border border-yellow-200">
+                  <p className="text-sm text-yellow-600">Barcode generated: {formData.barcode}</p>
                 </div>
               )}
             </div>
