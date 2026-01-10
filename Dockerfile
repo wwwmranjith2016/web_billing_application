@@ -25,6 +25,11 @@ COPY package*.json ./
 
 # Install production dependencies only
 RUN npm ci --omit=dev
+# Install server dependencies
+WORKDIR /app/server
+COPY server/package*.json ./server/
+RUN npm ci --omit=dev
+WORKDIR /app
 
 # Copy server
 COPY --from=build /app/server ./server
