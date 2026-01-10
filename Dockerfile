@@ -6,8 +6,8 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci && npm install --no-optional
+# Install dependencies INCLUDING optional ones (needed for Rollup on Alpine)
+RUN npm ci
 
 # Copy source files
 COPY . .
@@ -42,5 +42,5 @@ EXPOSE 3000
 ENV NODE_ENV=production
 ENV PORT=3000
 
-# Start both server and serve static files
-CMD ["sh", "-c", "npx serve dist -l 3000 & node server/index.js"]
+# Start server (serve built files from dist)
+CMD ["node", "server/index.js"]
