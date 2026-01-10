@@ -193,7 +193,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ onSuccess, onCancel, editProd
       };
 
       // Ensure all numeric values are regular numbers, not BigInt
-      const sanitizedData = JSON.parse(JSON.stringify(productData, (key, value) => {
+      const sanitizedData = JSON.parse(JSON.stringify(productData, (_key, value) => {
         if (typeof value === 'bigint') {
           return Number(value);
         }

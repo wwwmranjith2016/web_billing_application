@@ -8,7 +8,7 @@ async function fetchAPI(endpoint: string, options: RequestInit = {}) {
     if (typeof options.body !== 'string') {
       options = {
         ...options,
-        body: JSON.stringify(options.body, (key, value) => {
+        body: JSON.stringify(options.body, (_key, value) => {
           // Convert BigInt to string for JSON serialization
           if (typeof value === 'bigint') {
             return value.toString();

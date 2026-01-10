@@ -20,7 +20,7 @@
   "devDependencies": {
     "@types/node": "^20.10.0",
     "@types/react": "^18.2.43",
-    "@types/react-dom": "^18.2.17",
+    "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.4.16",
     "concurrently": "^8.2.2",
@@ -33,13 +33,13 @@
     "wait-on": "^7.2.0"
   },
   "dependencies": {
-    "sql.js": "^1.10.3",
-    "jsbarcode": "^3.11.6",
     "date-fns": "^2.30.0",
+    "jsbarcode": "^3.11.6",
     "lucide-react": "^0.298.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-hook-form": "^7.49.2",
+    "sql.js": "^1.10.3",
     "zustand": "^4.4.7"
   }
 }
