@@ -27,7 +27,7 @@ COPY package*.json ./
 RUN npm ci --omit=dev
 # Install server dependencies
 WORKDIR /app/server
-COPY server/package*.json ./server/
+COPY server/package*.json ./
 RUN npm ci --omit=dev
 WORKDIR /app
 
