@@ -7,7 +7,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies INCLUDING optional ones (needed for Rollup on Alpine)
-RUN npm ci
+RUN npm ci && npm install --no-save @rollup/rollup-linux-x64-gnu
 
 # Copy source files
 COPY . .
