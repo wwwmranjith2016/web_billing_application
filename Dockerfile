@@ -12,6 +12,10 @@ RUN npm ci && npm install --no-save @rollup/rollup-linux-x64-gnu
 # Copy source files
 COPY . .
 
+# Set production environment variables for build
+ENV NODE_ENV=production
+ENV VITE_API_URL=https://web-billing-application.onrender.com
+
 # Build the application
 RUN npm run build
 

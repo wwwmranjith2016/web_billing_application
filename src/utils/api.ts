@@ -1,7 +1,10 @@
 // Web API Service - Replaces Electron IPC for web deployment
-const API_BASE_URL = import.meta.env.NODE_ENV === 'development'
-  ? 'http://localhost:3001'
-  : import.meta.env.VITE_API_URL || 'http://localhost:3001';
+// Use VITE_API_URL if available, otherwise fall back based on environment
+const API_BASE_URL = import.meta.env.VITE_API_URL
+  ? import.meta.env.VITE_API_URL
+  : (import.meta.env.NODE_ENV === 'development'
+    ? 'http://localhost:3001'
+    : 'http://localhost:3001');
 
 async function fetchAPI(endpoint: string, options: RequestInit = {}) {
   // Handle BigInt serialization for POST/PUT requests
