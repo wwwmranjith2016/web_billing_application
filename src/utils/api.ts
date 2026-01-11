@@ -1,5 +1,7 @@
 // Web API Service - Replaces Electron IPC for web deployment
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_BASE_URL = import.meta.env.NODE_ENV === 'development'
+  ? 'http://localhost:3001'
+  : import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 async function fetchAPI(endpoint: string, options: RequestInit = {}) {
   // Handle BigInt serialization for POST/PUT requests
@@ -19,15 +21,28 @@ async function fetchAPI(endpoint: string, options: RequestInit = {}) {
     }
   }
 
+  // Get auth token from localStorage if available
+  const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
+      ...(token && { 'Authorization': `Bearer ${token}` }),
       ...options.headers,
     },
   });
 
   if (!response.ok) {
+    // Check if response is HTML (error page)
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('text/html')) {
+      const text = await response.text();
+      if (text.includes('<!DOCTYPE') || text.includes('<html')) {
+        throw new Error('Authentication required. Please login again.');
+      }
+    }
+    
     const error = await response.json().catch(() => ({ error: 'Request failed' }));
     throw new Error(error.error || 'Request failed');
   }
@@ -104,6 +119,38 @@ export const customersAPI = {
   search: (query: string) => fetchAPI(`/api/customers/search/${query}`),
 };
 
+// Authentication API
+export const authAPI = {
+  login: (username: string, password: string) =>
+    fetchAPI('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ username, password })
+    }),
+  logout: () => fetchAPI('/api/auth/logout', { method: 'POST' }),
+  getCurrentUser: () => fetchAPI('/api/auth/me'),
+  register: (userData: any) =>
+    fetchAPI('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(userData)
+    }),
+  changePassword: (userId: number, currentPassword: string, newPassword: string) =>
+    fetchAPI(`/api/users/${userId}/password`, {
+      method: 'PUT',
+      body: JSON.stringify({ currentPassword, newPassword })
+    }),
+};
+
+// Users API (Admin)
+export const usersAPI = {
+  getAll: () => fetchAPI('/api/users'),
+  getById: (id: number) => fetchAPI(`/api/users/${id}`),
+  update: (id: number, userData: any) =>
+    fetchAPI(`/api/users/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(userData)
+    }),
+};
+
 // Barcode API
 export const barcodeAPI = {
   generateUnique: (category?: string) => fetchAPI(`/api/barcode/generate/${category || 'general'}`),
@@ -126,6 +173,8 @@ if (typeof window !== 'undefined') {
     reports: reportsAPI,
     settings: settingsAPI,
     customers: customersAPI,
+    auth: authAPI,
+    users: usersAPI,
     barcode: {
       generateUnique: barcodeAPI.generateUnique,
       generateImage: () => Promise.resolve({ success: true }),

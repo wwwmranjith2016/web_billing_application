@@ -6,10 +6,24 @@ const Dashboard: React.FC = () => {
   const [selectedPeriod, setSelectedPeriod] = useState<Period>('today');
   const [salesData, setSalesData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   useEffect(() => {
     loadDashboardData();
+    loadCurrentUser();
   }, []);
+  
+  const loadCurrentUser = () => {
+    try {
+      const userString = localStorage.getItem('user');
+      if (userString) {
+        const user = JSON.parse(userString);
+        setCurrentUser(user);
+      }
+    } catch (error) {
+      console.error('Error loading user data:', error);
+    }
+  };
 
   // Calculate date range based on selected period
   const getDateRange = (period: Period) => {
@@ -107,12 +121,12 @@ const Dashboard: React.FC = () => {
   const summary = salesData?.summary || {};
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Dashboard</h1>
+    <div className="p-4 md:p-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+        <h1 className="text-2xl md:text-3xl font-bold">Dashboard</h1>
         
         {/* Period Selector */}
-        <div className="flex bg-white rounded-lg shadow p-1">
+        <div className="flex flex-wrap gap-1 bg-white rounded-lg shadow p-1 w-full md:w-auto">
           <button
             onClick={() => handlePeriodChange('today')}
             className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
@@ -156,6 +170,26 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
+      {/* User Info */}
+      {currentUser && (
+        <div className="mb-4 bg-blue-50 rounded-lg p-4">
+          <p className="text-blue-800 font-medium">
+            👤 Showing dashboard for:
+            <span className="font-semibold">{currentUser.fullName || currentUser.username}</span>
+            {currentUser.role !== 'ADMIN' && (
+              <span className="ml-2 text-sm bg-blue-100 px-2 py-1 rounded">
+                (Your sales data only)
+              </span>
+            )}
+            {currentUser.role === 'ADMIN' && (
+              <span className="ml-2 text-sm bg-green-100 px-2 py-1 rounded">
+                (All sales data)
+              </span>
+            )}
+          </p>
+        </div>
+      )}
+      
       {/* Period Info */}
       {salesData && (
         <div className="mb-6">
@@ -167,7 +201,7 @@ const Dashboard: React.FC = () => {
               </span>
             )}
           </p>
-          
+           
 
         </div>
       )}
@@ -242,24 +276,26 @@ const Dashboard: React.FC = () => {
           <h2 className="text-xl font-bold mb-4">
             Top Selling Items - {salesData.periodLabel}
           </h2>
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-2 text-left">Product</th>
-                <th className="px-4 py-2 text-center">Quantity</th>
-                <th className="px-4 py-2 text-right">Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              {salesData.topItems.map((item: any, index: number) => (
-                <tr key={index} className="border-t">
-                  <td className="px-4 py-2">{item.product_name}</td>
-                  <td className="px-4 py-2 text-center">{item.total_quantity}</td>
-                  <td className="px-4 py-2 text-right">₹{item.total_amount.toFixed(2)}</td>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[600px]">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-2 text-left">Product</th>
+                  <th className="px-4 py-2 text-center">Quantity</th>
+                  <th className="px-4 py-2 text-right">Amount</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {salesData.topItems.map((item: any, index: number) => (
+                  <tr key={index} className="border-t">
+                    <td className="px-4 py-2">{item.product_name}</td>
+                    <td className="px-4 py-2 text-center">{item.total_quantity}</td>
+                    <td className="px-4 py-2 text-right">₹{item.total_amount.toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

@@ -10,6 +10,7 @@ interface CartItem {
   quantity: number;
   unit_price: number;
   total_price: number;
+  stock_quantity: number;
 }
 
 const BillingScreen: React.FC = () => {
@@ -92,6 +93,13 @@ const BillingScreen: React.FC = () => {
     const existingIndex = cart.findIndex(item => item.product_id === product.product_id);
     
     if (existingIndex >= 0) {
+      // Check if we can increase quantity
+      const currentQuantity = cart[existingIndex].quantity;
+      if (currentQuantity >= product.stock_quantity) {
+        showToast(`Cannot add more than available stock. Only ${product.stock_quantity} items available.`, 'error');
+        return;
+      }
+      
       // Increase quantity
       const newCart = [...cart];
       newCart[existingIndex].quantity += 1;
@@ -105,7 +113,8 @@ const BillingScreen: React.FC = () => {
         barcode: product.barcode,
         quantity: 1,
         unit_price: product.selling_price,
-        total_price: product.selling_price
+        total_price: product.selling_price,
+        stock_quantity: product.stock_quantity
       }]);
     }
 
@@ -113,13 +122,19 @@ const BillingScreen: React.FC = () => {
     setSearchResults([]);
     setSearchQuery('');
     setShowSearchResults(false);
-    searchInputRef.current?.focus();  
+    searchInputRef.current?.focus();
   };
 
   // Update quantity
   const updateQuantity = (index: number, newQuantity: number) => {
     if (newQuantity <= 0) {
       removeFromCart(index);
+      return;
+    }
+
+    const item = cart[index];
+    if (newQuantity > item.stock_quantity) {
+      showToast(`Cannot add more than available stock. Only ${item.stock_quantity} items available.`, 'error');
       return;
     }
 
@@ -270,21 +285,21 @@ const BillingScreen: React.FC = () => {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-gray-100">
+    <div className="flex flex-col bg-gray-100 h-full">
       {/* Header */}
-      <div className="p-4 flex justify-between items-center">
-        <h1 className="text-2xl font-bold">New Bill</h1>
-        <div className="flex items-center gap-4">
+      <div className="p-2 md:p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
+        <h1 className="text-xl md:text-2xl font-bold">New Bill</h1>
+        <div className="flex flex-col md:flex-row items-start md:items-center gap-2 w-full md:w-auto">
           {lastScan && (
-            <div className="bg-green-500 px-4 py-2 rounded animate-pulse">
+            <div className="bg-green-500 px-2 md:px-4 py-1 rounded animate-pulse text-sm md:text-base">
               ✓ Scanned: {lastScan}
             </div>
           )}
-          <div className="text-sm flex items-center gap-2">
+          <div className="text-xs md:text-sm flex items-center gap-2">
             📷 Scanner Ready
             <span className={`px-2 py-1 rounded text-xs ${
-              printerStatus?.connected 
-                ? 'bg-green-100 text-green-800' 
+              printerStatus?.connected
+                ? 'bg-green-100 text-green-800'
                 : 'bg-red-100 text-red-800'
             }`}>
               {printerStatus?.connected ? '🖨️ Printer Ready' : '🖨️ Printer Offline'}
@@ -293,11 +308,11 @@ const BillingScreen: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
         {/* Left Side - Product Search & Cart */}
-        <div className="flex-1 p-4 flex flex-col">
+        <div className="flex-1 p-2 md:p-4 flex flex-col overflow-auto">
           {/* Search Box */}
-          <div className="mb-4 relative">
+          <div className="mb-2 md:mb-4 relative">
             <input
               ref={searchInputRef}
               type="text"
@@ -306,7 +321,7 @@ const BillingScreen: React.FC = () => {
               // onFocus={() => searchResults.length > 0 && setShowSearchResults(true)}
               onFocus={() => searchQuery.length >= 2 && searchResults.length > 0 && setShowSearchResults(true)}
               placeholder="Search product by name, barcode, or scan barcode..."
-              className="w-full px-4 py-3 text-lg border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+              className="w-full px-3 py-2 md:px-4 md:py-3 text-base md:text-lg border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
               autoFocus
             />
             
@@ -340,87 +355,89 @@ const BillingScreen: React.FC = () => {
                 </div>
               </div>
             ) : (
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-sm font-semibold">Product</th>
-                    <th className="px-4 py-3 text-center text-sm font-semibold">Qty</th>
-                    <th className="px-4 py-3 text-right text-sm font-semibold">Price</th>
-                    <th className="px-4 py-3 text-right text-sm font-semibold">Total</th>
-                    <th className="px-4 py-3"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {cart.map((item, index) => (
-                    <tr key={index} className="border-t">
-                      <td className="px-4 py-3">
-                        <div className="font-medium">{item.product_name}</div>
-                        <div className="text-xs text-gray-500">{item.barcode}</div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center justify-center gap-2">
-                          <button
-                            onClick={() => updateQuantity(index, item.quantity - 1)}
-                            className="w-8 h-8 bg-gray-200 rounded hover:bg-gray-300"
-                          >
-                            -
-                          </button>
-                          <input
-                            type="number"
-                            value={item.quantity}
-                            onChange={(e) => updateQuantity(index, parseInt(e.target.value) || 1)}
-                            className="w-16 text-center border rounded px-2 py-1"
-                          />
-                          <button
-                            onClick={() => updateQuantity(index, item.quantity + 1)}
-                            className="w-8 h-8 bg-gray-200 rounded hover:bg-gray-300"
-                          >
-                            +
-                          </button>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-right">₹{item.unit_price.toFixed(2)}</td>
-                      <td className="px-4 py-3 text-right font-semibold">₹{item.total_price.toFixed(2)}</td>
-                      <td className="px-4 py-3">
-                        <button
-                          onClick={() => removeFromCart(index)}
-                          className="text-red-600 hover:text-red-800"
-                        >
-                          ✕
-                        </button>
-                      </td>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[800px]">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-2 py-2 text-left text-xs md:text-sm font-semibold">Product</th>
+                      <th className="px-2 py-2 text-center text-xs md:text-sm font-semibold">Qty</th>
+                      <th className="px-2 py-2 text-right text-xs md:text-sm font-semibold">Price</th>
+                      <th className="px-2 py-2 text-right text-xs md:text-sm font-semibold">Total</th>
+                      <th className="px-2 py-2"></th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {cart.map((item, index) => (
+                      <tr key={index} className="border-t">
+                        <td className="px-2 py-2">
+                          <div className="font-medium text-xs md:text-sm">{item.product_name}</div>
+                          <div className="text-xs text-gray-500">{item.barcode}</div>
+                        </td>
+                        <td className="px-2 py-2">
+                          <div className="flex items-center justify-center gap-1">
+                            <button
+                              onClick={() => updateQuantity(index, item.quantity - 1)}
+                              className="w-6 h-6 md:w-8 md:h-8 bg-gray-200 rounded hover:bg-gray-300 text-sm"
+                            >
+                              -
+                            </button>
+                            <input
+                              type="number"
+                              value={item.quantity}
+                              onChange={(e) => updateQuantity(index, parseInt(e.target.value) || 1)}
+                              className="w-12 md:w-16 text-center border rounded px-1 py-1 text-sm"
+                            />
+                            <button
+                              onClick={() => updateQuantity(index, item.quantity + 1)}
+                              className="w-6 h-6 md:w-8 md:h-8 bg-gray-200 rounded hover:bg-gray-300 text-sm"
+                            >
+                              +
+                            </button>
+                          </div>
+                        </td>
+                        <td className="px-2 py-2 text-right text-sm">₹{item.unit_price.toFixed(2)}</td>
+                        <td className="px-2 py-2 text-right font-semibold text-sm">₹{item.total_price.toFixed(2)}</td>
+                        <td className="px-2 py-2">
+                          <button
+                            onClick={() => removeFromCart(index)}
+                            className="text-red-600 hover:text-red-800 text-sm"
+                          >
+                            ✕
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         </div>
 
         {/* Right Side - Bill Summary */}
-        <div className="w-96 bg-white p-6 shadow-lg flex flex-col">
+        <div className="w-full md:w-96 bg-white p-2 md:p-4 shadow-lg flex flex-col md:border-l overflow-auto">
           {/* Customer Info */}
-          <div className="mb-4">
-            <h3 className="font-semibold mb-2">Customer (Optional)</h3>
+          <div className="mb-2 md:mb-4">
+            <h3 className="font-semibold mb-1 md:mb-2 text-sm md:text-base">Customer (Optional)</h3>
             <input
               type="text"
               value={customerName}
               onChange={(e) => setCustomerName(e.target.value)}
               placeholder="Customer Name"
-              className="w-full px-3 py-2 border rounded mb-2"
+              className="w-full px-2 py-1 md:px-3 md:py-2 border rounded mb-1 md:mb-2 text-sm md:text-base"
             />
             <input
               type="tel"
               value={customerPhone}
               onChange={(e) => setCustomerPhone(e.target.value)}
               placeholder="Phone Number"
-              className="w-full px-3 py-2 border rounded"
+              className="w-full px-2 py-1 md:px-3 md:py-2 border rounded text-sm md:text-base"
             />
           </div>
 
           {/* Totals */}
           <div className="flex-1">
-            <div className="space-y-3 text-lg">
+            <div className="space-y-2 md:space-y-3 text-base md:text-lg">
               <div className="flex justify-between">
                 <span>Subtotal:</span>
                 <span className="font-semibold">₹{subtotal.toFixed(2)}</span>
@@ -428,21 +445,21 @@ const BillingScreen: React.FC = () => {
 
               <div className="flex justify-between items-center">
                 <span>Discount:</span>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 md:gap-2">
                   <input
                     type="number"
                     value={discountPercent}
                     onChange={(e) => setDiscountPercent(parseFloat(e.target.value) || 0)}
-                    className="w-16 px-2 py-1 border rounded text-right"
+                    className="w-12 md:w-16 px-1 md:px-2 py-1 border rounded text-right text-sm md:text-base"
                     min="0"
                     max="100"
                   />
-                  <span>%</span>
-                  <span className="font-semibold">₹{discountAmount.toFixed(2)}</span>
+                  <span className="text-sm md:text-base">%</span>
+                  <span className="font-semibold text-sm md:text-base">₹{discountAmount.toFixed(2)}</span>
                 </div>
               </div>
 
-              <div className="border-t pt-3 flex justify-between text-2xl font-bold text-blue-600">
+              <div className="border-t pt-2 md:pt-3 flex justify-between text-xl md:text-2xl font-bold text-blue-600">
                 <span>TOTAL:</span>
                 <span>₹{total.toFixed(2)}</span>
               </div>
@@ -450,14 +467,14 @@ const BillingScreen: React.FC = () => {
           </div>
 
           {/* Payment Mode */}
-          <div className="mb-4">
-            <h3 className="font-semibold mb-2">Payment Mode</h3>
-            <div className="grid grid-cols-2 gap-2">
+          <div className="mb-2 md:mb-4">
+            <h3 className="font-semibold mb-1 md:mb-2 text-sm md:text-base">Payment Mode</h3>
+            <div className="grid grid-cols-2 gap-1 md:gap-2">
               {['CASH', 'UPI', 'CARD', 'CREDIT'].map((mode) => (
                 <button
                   key={mode}
                   onClick={() => setPaymentMode(mode)}
-                  className={`px-4 py-2 rounded font-semibold ${
+                  className={`px-2 md:px-4 py-1 md:py-2 rounded font-semibold text-xs md:text-sm ${
                     paymentMode === mode
                       ? 'bg-blue-600 text-white'
                       : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
@@ -470,19 +487,19 @@ const BillingScreen: React.FC = () => {
           </div>
 
           {/* Action Buttons */}
-          <div className="space-y-2">
+          <div className="space-y-1 md:space-y-2">
             <button
               onClick={handleProcessBill}
               disabled={cart.length === 0 || processing}
-              className="w-full py-4 bg-green-600 text-white rounded-lg font-bold text-lg hover:bg-green-700 disabled:bg-gray-400"
+              className="w-full py-3 md:py-4 bg-green-600 text-white rounded-lg font-bold text-base md:text-lg hover:bg-green-700 disabled:bg-gray-400"
             >
               {processing ? 'Processing...' : 'CREATE & PRINT BILL'}
             </button>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-1 md:gap-2">
               <button
                 onClick={() => setShowReceiptPreview(true)}
                 disabled={cart.length === 0}
-                className="py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 disabled:bg-gray-400"
+                className="py-1 md:py-2 bg-blue-600 text-white rounded-lg font-semibold text-xs md:text-sm hover:bg-blue-700 disabled:bg-gray-400"
               >
                 👁️ Preview
               </button>
@@ -493,7 +510,7 @@ const BillingScreen: React.FC = () => {
                     setDiscountPercent(0);
                   }
                 }}
-                className="py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                className="py-1 md:py-2 bg-red-600 text-white rounded-lg font-semibold text-xs md:text-sm hover:bg-red-700"
               >
                 Clear
               </button>
@@ -504,8 +521,8 @@ const BillingScreen: React.FC = () => {
 
       {/* Receipt Preview Modal */}
       {showReceiptPreview && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-lg w-full max-h-[90vh] overflow-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 md:p-4">
+          <div className="bg-white rounded-lg w-full max-w-md md:max-w-lg max-h-[90vh] overflow-auto">
             <div className="p-4 border-b">
               <div className="flex justify-between items-center">
                 <h2 className="text-xl font-bold">Bill Preview</h2>
@@ -527,11 +544,11 @@ const BillingScreen: React.FC = () => {
               />
             </div>
             <div className="p-4 border-t bg-gray-50">
-              <div className="flex gap-2">
+              <div className="flex gap-1 md:gap-2">
                 <button
                   onClick={confirmAndPrint}
                   disabled={processing}
-                  className="flex-1 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 disabled:bg-gray-400"
+                  className="flex-1 py-2 md:py-3 bg-green-600 text-white rounded-lg font-semibold text-sm md:text-base hover:bg-green-700 disabled:bg-gray-400"
                 >
                   🖨️ Print Bill
                 </button>
@@ -540,7 +557,7 @@ const BillingScreen: React.FC = () => {
                     setShowReceiptPreview(false);
                     setPendingBillData(null);
                   }}
-                  className="flex-1 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+                  className="flex-1 py-2 md:py-3 bg-gray-600 text-white rounded-lg font-semibold text-sm md:text-base hover:bg-gray-700"
                 >
                   Cancel
                 </button>

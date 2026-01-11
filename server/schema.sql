@@ -30,8 +30,12 @@ CREATE TABLE IF NOT EXISTS products (
     min_stock_level INTEGER DEFAULT 5,
     is_active INTEGER DEFAULT 1,
     barcode_generated_at DATETIME,
+    created_by INTEGER,
+    updated_by INTEGER,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (created_by) REFERENCES users(user_id),
+    FOREIGN KEY (updated_by) REFERENCES users(user_id)
 );
 
 -- CUSTOMERS TABLE
@@ -63,8 +67,12 @@ CREATE TABLE IF NOT EXISTS bills (
     notes TEXT,
     is_return INTEGER DEFAULT 0,
     original_bill_id INTEGER,
+    created_by INTEGER,
+    updated_by INTEGER,
     FOREIGN KEY (customer_id) REFERENCES customers(customer_id),
-    FOREIGN KEY (original_bill_id) REFERENCES bills(bill_id)
+    FOREIGN KEY (original_bill_id) REFERENCES bills(bill_id),
+    FOREIGN KEY (created_by) REFERENCES users(user_id),
+    FOREIGN KEY (updated_by) REFERENCES users(user_id)
 );
 
 -- BILL ITEMS TABLE
@@ -78,8 +86,10 @@ CREATE TABLE IF NOT EXISTS bill_items (
     quantity INTEGER NOT NULL,
     unit_price REAL NOT NULL,
     total_price REAL NOT NULL,
+    created_by INTEGER,
     FOREIGN KEY (bill_id) REFERENCES bills(bill_id) ON DELETE CASCADE,
-    FOREIGN KEY (product_id) REFERENCES products(product_id)
+    FOREIGN KEY (product_id) REFERENCES products(product_id),
+    FOREIGN KEY (created_by) REFERENCES users(user_id)
 );
 
 -- STOCK TRANSACTIONS TABLE
@@ -92,7 +102,9 @@ CREATE TABLE IF NOT EXISTS stock_transactions (
     reference_id INTEGER,
     transaction_date DATETIME DEFAULT CURRENT_TIMESTAMP,
     notes TEXT,
-    FOREIGN KEY (product_id) REFERENCES products(product_id)
+    created_by INTEGER,
+    FOREIGN KEY (product_id) REFERENCES products(product_id),
+    FOREIGN KEY (created_by) REFERENCES users(user_id)
 );
 
 -- BARCODE SEQUENCE TABLE
@@ -132,7 +144,11 @@ CREATE TABLE IF NOT EXISTS return_transactions (
     balance_amount REAL DEFAULT 0,
     status TEXT DEFAULT 'PENDING',
     notes TEXT,
-    FOREIGN KEY (original_bill_id) REFERENCES bills(bill_id)
+    created_by INTEGER,
+    updated_by INTEGER,
+    FOREIGN KEY (original_bill_id) REFERENCES bills(bill_id),
+    FOREIGN KEY (created_by) REFERENCES users(user_id),
+    FOREIGN KEY (updated_by) REFERENCES users(user_id)
 );
 
 -- RETURN ITEMS TABLE (Items being returned)
@@ -146,8 +162,10 @@ CREATE TABLE IF NOT EXISTS return_items (
     quantity INTEGER NOT NULL,
     unit_price REAL NOT NULL,
     total_price REAL NOT NULL,
+    created_by INTEGER,
     FOREIGN KEY (return_id) REFERENCES return_transactions(return_id) ON DELETE CASCADE,
-    FOREIGN KEY (product_id) REFERENCES products(product_id)
+    FOREIGN KEY (product_id) REFERENCES products(product_id),
+    FOREIGN KEY (created_by) REFERENCES users(user_id)
 );
 
 -- EXCHANGE ITEMS TABLE (Items customer is taking in exchange)
@@ -161,8 +179,10 @@ CREATE TABLE IF NOT EXISTS exchange_items (
     quantity INTEGER NOT NULL,
     unit_price REAL NOT NULL,
     total_price REAL NOT NULL,
+    created_by INTEGER,
     FOREIGN KEY (return_id) REFERENCES return_transactions(return_id) ON DELETE CASCADE,
-    FOREIGN KEY (product_id) REFERENCES products(product_id)
+    FOREIGN KEY (product_id) REFERENCES products(product_id),
+    FOREIGN KEY (created_by) REFERENCES users(user_id)
 );
 
 -- TRIGGERS
@@ -235,3 +255,40 @@ CREATE INDEX IF NOT EXISTS idx_return_transactions_date ON return_transactions(r
 CREATE INDEX IF NOT EXISTS idx_return_transactions_original_bill ON return_transactions(original_bill_id);
 CREATE INDEX IF NOT EXISTS idx_return_items_return ON return_items(return_id);
 CREATE INDEX IF NOT EXISTS idx_exchange_items_return ON exchange_items(return_id);
+
+-- USERS TABLE
+CREATE TABLE IF NOT EXISTS users (
+    user_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE NOT NULL,
+    email TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'STAFF',
+    full_name TEXT,
+    phone TEXT,
+    is_active INTEGER DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- USER SESSIONS TABLE
+CREATE TABLE IF NOT EXISTS user_sessions (
+    session_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    session_token TEXT UNIQUE NOT NULL,
+    expires_at DATETIME NOT NULL,
+    ip_address TEXT,
+    user_agent TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(user_id)
+);
+
+-- Add user_id to bills table for tracking which user created each bill
+ALTER TABLE bills ADD COLUMN user_id INTEGER;
+ALTER TABLE bills ADD FOREIGN KEY (user_id) REFERENCES users(user_id);
+
+-- INDEXES FOR USER TABLES
+CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_token ON user_sessions(session_token);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_expires ON user_sessions(expires_at);
+CREATE INDEX IF NOT EXISTS idx_bills_user ON bills(user_id);

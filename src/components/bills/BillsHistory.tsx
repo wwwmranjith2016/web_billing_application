@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useToast } from '../common/ToastContext';
 import BillEditModal from './BillEditModal';
+import { billsAPI } from '../../utils/api';
 
 const BillsHistory: React.FC = () => {
   const [bills, setBills] = useState<any[]>([]);
@@ -40,7 +41,7 @@ const BillsHistory: React.FC = () => {
 
   const loadBills = async () => {
     try {
-      const result = await (window as any).electron.bills.getAll({});
+      const result = await billsAPI.getAll({});
       if (result.success) {
         setBills(result.data);
       }
@@ -65,7 +66,7 @@ const BillsHistory: React.FC = () => {
   const loadBillDetails = async (billId: number) => {
     setLoadingBillDetails(true);
     try {
-      const result = await (window as any).electron.bills.getById(billId);
+      const result = await billsAPI.getById(billId);
       if (result.success) {
         setBillDetails(result.data);
         setShowBillModal(true);
@@ -99,9 +100,9 @@ const BillsHistory: React.FC = () => {
   };
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Bills History</h1>
+    <div className="p-4 md:p-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 md:mb-6 gap-4">
+        <h1 className="text-2xl md:text-3xl font-bold">Bills History</h1>
         {/* Search Bar */}
         <div className="relative max-w-md">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -149,106 +150,109 @@ const BillsHistory: React.FC = () => {
 
       {loading ? (
         <div className="text-center py-8">Loading bills...</div>
-      ) : bills.length === 0 ? (<div className="text-center py-8 text-gray-500">
+      ) : bills.length === 0 ? (
+        <div className="text-center py-8 text-gray-500">
           No bills found. Create your first bill!
         </div>
       ) : (
         <div className="bg-white rounded-lg shadow overflow-hidden">
-          <table className="min-w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Bill Number
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Date & Time
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Customer
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  Payment
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                  Amount
-                </th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">
-                  Type
-                </th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {filteredBills.map((bill) => (
-                <tr 
-                  key={bill.bill_id} 
-                  className="hover:bg-gray-50 cursor-pointer transition-colors"
-                  onClick={() => handleBillClick(bill)}
-                >
-                  <td className="px-6 py-4 whitespace-nowrap font-semibold text-blue-600">
-                    {bill.bill_number}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {formatDate(bill.bill_date)}
-                  </td>
-                  <td className="px-6 py-4 text-sm">
-                    {bill.customer_name || 'Walk-in'}
-                    {bill.customer_phone && (
-                      <div className="text-gray-500">{bill.customer_phone}</div>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 text-sm">
-                    <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                      bill.payment_mode === 'CASH' ? 'bg-green-100 text-green-800' :
-                      bill.payment_mode === 'UPI' ? 'bg-blue-100 text-blue-800' :
-                      bill.payment_mode === 'CARD' ? 'bg-purple-100 text-purple-800' :
-                      'bg-orange-100 text-orange-800'
-                    }`}>
-                      {bill.payment_mode}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-right font-semibold">
-                    {formatCurrency(bill.total_amount)}
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    {bill.is_return ? (
-                      <div className="flex flex-col items-center gap-1">
-                        <span className="px-2 py-1 rounded text-xs font-semibold bg-purple-100 text-purple-800">
-                          RETURN
-                        </span>
-                        {bill.original_bill_id && (
-                          <span className="text-xs text-gray-500">
-                            of #{bill.original_bill_id}
-                          </span>
-                        )}
-                      </div>
-                    ) : (
-                      <span className="px-2 py-1 rounded text-xs font-semibold bg-green-100 text-green-800">
-                        SALE
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedBill(bill);
-                        setShowEditModal(true);
-                      }}
-                      className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 p-1 rounded transition-colors"
-                      title="Edit Bill"
-                    >
-                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
-                    </button>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="min-w-full md:min-w-[1000px]">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Bill Number
+                  </th>
+                  <th className="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Date & Time
+                  </th>
+                  <th className="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Customer
+                  </th>
+                  <th className="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Payment
+                  </th>
+                  <th className="px-3 md:px-6 py-2 md:py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                    Amount
+                  </th>
+                  <th className="px-3 md:px-6 py-2 md:py-3 text-center text-xs font-medium text-gray-500 uppercase">
+                    Type
+                  </th>
+                  <th className="px-3 md:px-6 py-2 md:py-3 text-center text-xs font-medium text-gray-500 uppercase">
+                    Actions
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {filteredBills.map((bill) => (
+                  <tr
+                    key={bill.bill_id}
+                    className="hover:bg-gray-50 cursor-pointer transition-colors"
+                    onClick={() => handleBillClick(bill)}
+                  >
+                    <td className="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap font-semibold text-blue-600 text-xs md:text-sm">
+                      {bill.bill_number}
+                    </td>
+                    <td className="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-xs md:text-sm text-gray-500">
+                      {formatDate(bill.bill_date)}
+                    </td>
+                    <td className="px-3 md:px-6 py-2 md:py-4 text-xs md:text-sm">
+                      {bill.customer_name || 'Walk-in'}
+                      {bill.customer_phone && (
+                        <div className="text-gray-500 text-xs">{bill.customer_phone}</div>
+                      )}
+                    </td>
+                    <td className="px-3 md:px-6 py-2 md:py-4 text-xs md:text-sm">
+                      <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                        bill.payment_mode === 'CASH' ? 'bg-green-100 text-green-800' :
+                        bill.payment_mode === 'UPI' ? 'bg-blue-100 text-blue-800' :
+                        bill.payment_mode === 'CARD' ? 'bg-purple-100 text-purple-800' :
+                        'bg-orange-100 text-orange-800'
+                      }`}>
+                        {bill.payment_mode}
+                      </span>
+                    </td>
+                    <td className="px-3 md:px-6 py-2 md:py-4 text-right font-semibold text-xs md:text-sm">
+                      {formatCurrency(bill.total_amount)}
+                    </td>
+                    <td className="px-3 md:px-6 py-2 md:py-4 text-center">
+                      {bill.is_return ? (
+                        <div className="flex flex-col items-center gap-1">
+                          <span className="px-2 py-1 rounded text-xs font-semibold bg-purple-100 text-purple-800">
+                            RETURN
+                          </span>
+                          {bill.original_bill_id && (
+                            <span className="text-xs text-gray-500">
+                              of #{bill.original_bill_id}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="px-2 py-1 rounded text-xs font-semibold bg-green-100 text-green-800">
+                          SALE
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-3 md:px-6 py-2 md:py-4 text-center">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedBill(bill);
+                          setShowEditModal(true);
+                        }}
+                        className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 p-1 rounded transition-colors"
+                        title="Edit Bill"
+                      >
+                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -370,7 +374,6 @@ const BillsHistory: React.FC = () => {
                   </div>
                 </div>
               </div>
-
             </div>
 
             {/* Modal Footer - Fixed */}
@@ -412,4 +415,5 @@ const BillsHistory: React.FC = () => {
     </div>
   );
 };
+
 export default BillsHistory;

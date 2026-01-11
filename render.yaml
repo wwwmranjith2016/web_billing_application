@@ -14,3 +14,14 @@ services:
         value: "3001"
     autoDeploy: true
     region: oregon
+  - type: web
+    name: billing-app-frontend
+    env: static
+    plan: free
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        value: "https://web-billing-application.onrender.com"
+    autoDeploy: true
+    region: oregon
